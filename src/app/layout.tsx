@@ -22,9 +22,9 @@ const mono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MediaLens — Iran–US Framing Engine",
+  title: "Iran–US War Research Hub",
   description:
-    "Cross-source framing and bias analysis for Iran–US geopolitical news coverage",
+    "A research workspace for Iran–US conflict coverage — narrative comparison, knowledge graphs, and a fine-tuned model on 2,200+ articles",
 };
 
 export default function RootLayout({

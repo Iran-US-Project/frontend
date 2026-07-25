@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 type CapabilityProps = {
   index: string;
   region: string;
@@ -5,6 +7,7 @@ type CapabilityProps = {
   description: string;
   accentClass: string;
   delayClass: string;
+  href: string;
 };
 
 export function CapabilityRow({
@@ -14,10 +17,11 @@ export function CapabilityRow({
   description,
   accentClass,
   delayClass,
+  href,
 }: CapabilityProps) {
   return (
-    <a
-      href="#"
+    <Link
+      href={href}
       className={`capability-row group grid grid-cols-[auto_1fr_auto] items-baseline gap-x-6 gap-y-2 border-t border-border py-8 sm:grid-cols-[4.5rem_7rem_1fr_auto] ${delayClass}`}
     >
       <span className="font-mono text-[11px] tabular-nums text-muted">
@@ -42,6 +46,6 @@ export function CapabilityRow({
       >
         →
       </span>
-    </a>
+    </Link>
   );
 }

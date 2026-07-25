@@ -1,14 +1,16 @@
 import { CapabilityRow } from "@/components/CapabilityRow";
+import { FramePlane } from "@/components/FramePlane";
 
 const capabilities = [
   {
     index: "01",
-    region: "Narrative",
+    region: "MediaLens",
     title: "Media narrative comparison",
     description:
-      "Walk the conflict timeline and read Western, Middle Eastern, and financial coverage of the same events side by side.",
+      "Same events, three frames. Compare how Western, Middle Eastern, and financial outlets cover the conflict — spin, omissions, and stance side by side.",
     accentClass: "text-west",
     delayClass: "animate-reveal-1",
+    href: "/medialens",
   },
   {
     index: "02",
@@ -18,6 +20,7 @@ const capabilities = [
       "Trace entities, actors, and relationships through an interactive knowledge graph built from the article corpus.",
     accentClass: "text-mena",
     delayClass: "animate-reveal-2",
+    href: "/graph",
   },
   {
     index: "03",
@@ -27,6 +30,7 @@ const capabilities = [
       "Ask a model trained on 2,200+ Iran–US articles — answers grounded in source text, not generic summaries.",
     accentClass: "text-finance",
     delayClass: "animate-reveal-3",
+    href: "/llm",
   },
 ];
 
@@ -41,91 +45,79 @@ export default function HomePage() {
 
       <div className="relative z-10">
         <section className="relative flex min-h-[100svh] flex-col">
-          {/* Full-bleed framing plane */}
           <div className="relative min-h-[48vh] flex-1">
-            <header className="absolute inset-x-0 top-0 z-20 flex items-center justify-between px-6 pt-7 sm:px-10">
+            <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between px-6 pt-7 sm:px-10">
               <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted">
                 2025–2026 corpus
               </p>
               <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted">
-                Cross-source framing
+                Three instruments
               </p>
             </header>
 
-            <div className="frame-plane absolute inset-0" aria-hidden>
-              <div className="frame-plane__col text-west">
-                <p className="absolute left-6 top-16 font-mono text-[10px] uppercase tracking-[0.2em] text-west/75 sm:left-10">
-                  Western
-                </p>
-                <div className="frame-plane__lines">
-                  <span />
-                  <span />
-                  <span />
-                  <span />
-                  <span />
-                  <span />
-                </div>
-              </div>
-              <div className="frame-plane__col text-mena">
-                <p className="absolute left-6 top-16 font-mono text-[10px] uppercase tracking-[0.2em] text-mena/75 sm:left-10">
-                  Middle East
-                </p>
-                <div className="frame-plane__lines">
-                  <span />
-                  <span />
-                  <span />
-                  <span />
-                  <span />
-                  <span />
-                </div>
-              </div>
-              <div className="frame-plane__col text-finance">
-                <p className="absolute right-6 top-16 font-mono text-[10px] uppercase tracking-[0.2em] text-finance/75 sm:right-10">
-                  Financial
-                </p>
-                <div className="frame-plane__lines">
-                  <span />
-                  <span />
-                  <span />
-                  <span />
-                  <span />
-                  <span />
-                </div>
-              </div>
-              <div className="absolute bottom-0 left-[33.333%] top-0 w-px bg-border/90" />
-              <div className="absolute bottom-0 left-[66.666%] top-0 w-px bg-border/90" />
-            </div>
+            <FramePlane
+              variant="hero"
+              columns={[
+                {
+                  label: "MediaLens",
+                  accentClass: "text-west",
+                  href: "/medialens",
+                },
+                {
+                  label: "GraphRAG",
+                  accentClass: "text-mena",
+                  href: "/graph",
+                },
+                {
+                  label: "LLM",
+                  accentClass: "text-finance",
+                  href: "/llm",
+                  align: "right",
+                },
+              ]}
+            />
 
-            {/* Fade into copy band */}
             <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-32 bg-gradient-to-t from-background to-transparent" />
           </div>
 
           <div className="relative z-20 mx-auto w-full max-w-6xl px-6 pb-14 pt-2 sm:px-8 sm:pb-16">
-            <p className="animate-reveal font-display text-[clamp(3.5rem,12vw,7rem)] font-medium leading-[0.9] tracking-[-0.03em] text-foreground">
-              MediaLens
+            <p className="animate-reveal font-mono text-[11px] uppercase tracking-[0.22em] text-muted">
+              Welcome to
             </p>
+
+            <h1 className="animate-reveal mt-3 max-w-3xl font-display text-[clamp(2.75rem,9vw,5.75rem)] font-medium leading-[0.95] tracking-[-0.03em] text-foreground">
+              Iran–US
+              <span className="mt-1 block text-[0.72em] font-normal italic text-foreground/90">
+                War Research Hub
+              </span>
+            </h1>
 
             <div className="animate-rule mt-6 h-px w-20 bg-accent" />
 
-            <h1 className="animate-reveal-1 mt-6 max-w-lg font-display text-[1.4rem] font-normal italic leading-snug text-foreground sm:text-[1.75rem]">
-              Same events. Three frames. The bias between them.
-            </h1>
+            <div className="mt-8 grid gap-8 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] sm:items-end sm:gap-12 lg:gap-20">
+              <div className="animate-reveal-1 max-w-xl">
+                <p className="font-display text-[1.2rem] font-normal leading-snug text-foreground sm:text-[1.35rem]">
+                  A workspace for investigating coverage, connections, and
+                  questions across the conflict archive.
+                </p>
+                <p className="mt-4 text-[15px] leading-relaxed text-muted sm:text-base">
+                  Three instruments on one corpus — narrative comparison,
+                  knowledge graphs, and a fine-tuned model — built for
+                  researchers, not summaries.
+                </p>
+              </div>
 
-            <p className="animate-reveal-2 mt-4 max-w-md text-[15px] leading-relaxed text-muted sm:text-base">
-              Compare how Western, Middle Eastern, and financial outlets cover
-              the Iran–US conflict — spin, omissions, and stance made visible.
-            </p>
-
-            <div className="animate-reveal-3 mt-8 flex flex-wrap items-center gap-5">
-              <a
-                href="#capabilities"
-                className="inline-flex items-center bg-[#12151a] px-5 py-3 text-[13px] font-medium tracking-wide text-[#f4f5f7] transition-opacity hover:opacity-80"
-              >
-                Enter the archive
-              </a>
-              <span className="font-mono text-[11px] text-muted">
-                2,286 articles indexed
-              </span>
+              <div className="animate-reveal-2 flex flex-col gap-3 sm:items-end sm:text-right">
+                <a
+                  href="#capabilities"
+                  className="inline-flex w-fit items-center bg-[#12151a] px-5 py-3 text-[13px] font-medium tracking-wide text-[#f4f5f7] transition-opacity hover:opacity-80"
+                >
+                  Enter the archive
+                </a>
+                <span className="font-mono text-[11px] text-muted">
+                  2,286 articles indexed
+                </span>
+              </div>
             </div>
           </div>
         </section>
@@ -138,15 +130,15 @@ export default function HomePage() {
             <div className="mb-2 flex items-end justify-between gap-6">
               <div>
                 <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
-                  Three instruments
+                  Instruments
                 </p>
                 <h2 className="mt-3 font-display text-3xl font-medium tracking-tight text-foreground sm:text-4xl">
-                  How the story is cut
+                  Choose a way in
                 </h2>
               </div>
               <p className="hidden max-w-[15rem] text-right text-sm leading-relaxed text-muted sm:block">
-                Each lens reads the same corpus. Together they show what a
-                single source hides.
+                Same archive. Three modes of inquiry — pick the lens that fits
+                the question.
               </p>
             </div>
 
@@ -160,10 +152,10 @@ export default function HomePage() {
 
         <footer className="mx-auto flex max-w-6xl flex-col gap-3 px-6 py-10 sm:flex-row sm:items-center sm:justify-between sm:px-8">
           <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">
-            MediaLens · Iran–US research hub
+            Iran–US war research hub
           </p>
           <p className="text-sm text-muted">
-            Framing engine · Dataset 2025–2026
+            MediaLens · GraphRAG · LLM · 2025–2026
           </p>
         </footer>
       </div>
