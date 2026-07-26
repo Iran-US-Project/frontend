@@ -21,6 +21,7 @@ import {
   formatEventDate,
   formatMonthYear,
 } from "@/lib/timeline-events";
+import type { AnalysisStatus } from "@/lib/event-coverage";
 
 type FilterTier = "all" | EventTier;
 
@@ -184,7 +185,9 @@ function EventDetailPanel({
   index,
   total,
   isCompared,
+  analysisStatus,
   onToggleCompare,
+  onRunComparison,
   onPrev,
   onNext,
 }: {
@@ -192,7 +195,9 @@ function EventDetailPanel({
   index: number;
   total: number;
   isCompared: boolean;
+  analysisStatus: AnalysisStatus;
   onToggleCompare: () => void;
+  onRunComparison: () => void;
   onPrev: () => void;
   onNext: () => void;
 }) {
@@ -264,10 +269,15 @@ function EventDetailPanel({
           </button>
           <button
             type="button"
-            disabled
-            className="h-10 bg-foreground px-5 text-[12px] font-medium tracking-wide text-paper disabled:cursor-not-allowed disabled:opacity-40"
+            onClick={onRunComparison}
+            disabled={!isCompared || analysisStatus === "running"}
+            className="h-10 bg-foreground px-5 text-[12px] font-medium tracking-wide text-paper transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Run comparison
+            {analysisStatus === "running"
+              ? "Running…"
+              : analysisStatus === "complete" && isCompared
+                ? "Re-run analysis"
+                : "Run comparison"}
           </button>
         </div>
       </header>
@@ -309,91 +319,19 @@ function EventDetailPanel({
   );
 }
 
-function ComparisonPanel({
-  events,
-  onClear,
-  onSelect,
-}: {
-  events: TimelineEvent[];
-  onClear: () => void;
-  onSelect: (id: string) => void;
-}) {
-  if (events.length === 0) return null;
+type EventTimelineProps = {
+  compareEventId: string | null;
+  analysisStatus: AnalysisStatus;
+  onToggleCompare: (eventId: string) => void;
+  onRunComparison: () => void;
+};
 
-  return (
-    <section className="mt-6 border border-border bg-paper/60">
-      <header className="flex items-baseline justify-between gap-4 border-b border-border px-5 py-4">
-        <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-west">
-            Side by side
-          </p>
-          <h3 className="mt-1 font-display text-xl font-medium text-foreground">
-            {events.length < 2
-              ? "Pick one more event to compare"
-              : "Compare event windows"}
-          </h3>
-        </div>
-        <button
-          type="button"
-          onClick={onClear}
-          className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted transition-colors hover:text-foreground"
-        >
-          Clear
-        </button>
-      </header>
-
-      <div className="grid md:grid-cols-2">
-        {[0, 1].map((slot) => {
-          const event = events[slot];
-          if (!event) {
-            return (
-              <div
-                key={slot}
-                className={`flex min-h-[140px] items-center justify-center px-5 py-8 ${
-                  slot === 0
-                    ? "border-b border-border md:border-b-0 md:border-r"
-                    : ""
-                }`}
-              >
-                <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted/70">
-                  Empty slot
-                </p>
-              </div>
-            );
-          }
-
-          return (
-            <button
-              key={event.id}
-              type="button"
-              onClick={() => onSelect(event.id)}
-              className={`px-5 py-5 text-left transition-colors hover:bg-foreground/[0.02] ${
-                slot === 0
-                  ? "border-b border-border md:border-b-0 md:border-r"
-                  : ""
-              }`}
-            >
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
-                Window {slot + 1}
-              </p>
-              <h4 className="mt-2 font-display text-lg text-foreground">
-                {event.title}
-              </h4>
-              <p className="mt-1 font-mono text-[11px] text-muted">
-                {formatEventDate(event.date, event.endDate)}
-              </p>
-              <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-muted">
-                {event.description}
-              </p>
-            </button>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-export function EventTimeline() {
+export function EventTimeline({
+  compareEventId,
+  analysisStatus,
+  onToggleCompare,
+  onRunComparison,
+}: EventTimelineProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
@@ -415,7 +353,6 @@ export function EventTimeline() {
     TIMELINE_EVENTS.find((e) => e.tier === "major")?.id ??
       TIMELINE_EVENTS[0].id,
   );
-  const [compareIds, setCompareIds] = useState<string[]>([]);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -467,10 +404,6 @@ export function EventTimeline() {
     selectedIndex >= 0
       ? visibleEvents[selectedIndex]
       : (visibleEvents[0] ?? TIMELINE_EVENTS[0]);
-
-  const compareEvents = TIMELINE_EVENTS.filter((e) =>
-    compareIds.includes(e.id),
-  );
 
   const updateScrollState = useCallback(() => {
     const el = scrollerRef.current;
@@ -551,14 +484,6 @@ export function EventTimeline() {
     },
     [selectedIndex, visibleEvents, selectEvent],
   );
-
-  const toggleCompare = useCallback((id: string) => {
-    setCompareIds((prev) => {
-      if (prev.includes(id)) return prev.filter((x) => x !== id);
-      if (prev.length >= 2) return [prev[1], id];
-      return [...prev, id];
-    });
-  }, []);
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
@@ -817,7 +742,7 @@ export function EventTimeline() {
             {/* Event markers + cards */}
             {laidOut.map((event, index) => {
               const isSelected = selectedEvent?.id === event.id;
-              const isCompared = compareIds.includes(event.id);
+              const isCompared = compareEventId === event.id;
               const isMajor = event.tier === "major";
               const stem = STEM_BASE + event.lane * LANE_STEP;
               const cardOffset = stem + 6;
@@ -958,17 +883,14 @@ export function EventTimeline() {
             event={selectedEvent}
             index={Math.max(0, selectedIndex)}
             total={visibleEvents.length}
-            isCompared={compareIds.includes(selectedEvent.id)}
-            onToggleCompare={() => toggleCompare(selectedEvent.id)}
+            isCompared={compareEventId === selectedEvent.id}
+            analysisStatus={analysisStatus}
+            onToggleCompare={() => onToggleCompare(selectedEvent.id)}
+            onRunComparison={onRunComparison}
             onPrev={() => selectRelative(-1)}
             onNext={() => selectRelative(1)}
           />
         )}
-        <ComparisonPanel
-          events={compareEvents}
-          onClear={() => setCompareIds([])}
-          onSelect={selectEvent}
-        />
       </div>
     </section>
   );
