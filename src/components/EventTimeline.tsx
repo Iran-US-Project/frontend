@@ -16,6 +16,7 @@ import {
   eventPosition,
   parseLocalDate,
   type EventTier,
+  type SubEvent,
   type TimelineEvent,
   formatEventDate,
   formatMonthYear,
@@ -119,6 +120,65 @@ function layoutEvents(events: TimelineEvent[]): LaidOutEvent[] {
   return placed;
 }
 
+const SUB_EVENT_PREVIEW_COUNT = 2;
+
+function formatSubEventDate(date: string): string {
+  return parseLocalDate(date).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function EventSubEventsPanel({ subEvents }: { subEvents: SubEvent[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const preview = subEvents.slice(0, SUB_EVENT_PREVIEW_COUNT);
+  const hiddenCount = Math.max(0, subEvents.length - preview.length);
+  const visible = expanded ? subEvents : preview;
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex-1">
+        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">
+          Key developments
+        </p>
+        <p className="mt-1.5 font-mono text-[11px] text-muted/80">
+          {subEvents.length} sub-events in this window
+        </p>
+
+        <ul className="mt-4 space-y-0 divide-y divide-border/70 border-y border-border/70">
+          {visible.map((item) => (
+            <li key={item.id} className="py-3">
+              <p className="text-[14px] leading-snug text-foreground/90">
+                {item.title}
+              </p>
+              <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
+                {formatSubEventDate(item.date)}
+              </p>
+            </li>
+          ))}
+        </ul>
+
+        {!expanded && hiddenCount > 0 && (
+          <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-muted/70">
+            +{hiddenCount} more not shown
+          </p>
+        )}
+      </div>
+
+      {subEvents.length > SUB_EVENT_PREVIEW_COUNT && (
+        <button
+          type="button"
+          onClick={() => setExpanded((open) => !open)}
+          className="mt-5 w-full border border-border bg-background/40 px-4 py-2.5 text-[12px] font-medium tracking-wide text-foreground transition-colors hover:border-foreground/30 hover:bg-foreground/[0.03]"
+          aria-expanded={expanded}
+        >
+          {expanded ? "Collapse" : "Expand"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function EventDetailPanel({
   event,
   index,
@@ -136,6 +196,8 @@ function EventDetailPanel({
   onPrev: () => void;
   onNext: () => void;
 }) {
+  const subEvents = event.subEvents ?? [];
+
   return (
     <article
       key={event.id}
@@ -214,34 +276,33 @@ function EventDetailPanel({
         <p className="border-b border-border px-5 py-5 text-[15px] leading-relaxed text-muted md:border-b-0 md:border-r">
           {event.description}
         </p>
-        <div className="px-5 py-5">
-          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">
-            Corpus keywords
-          </p>
-          <ul className="mt-3 flex flex-wrap gap-1.5">
-            {event.keywords.map((kw) => (
-              <li
-                key={kw}
-                className="border border-border bg-background/60 px-2.5 py-1 font-mono text-[10px] text-foreground/80"
-              >
-                {kw}
-              </li>
-            ))}
-          </ul>
-          <p className="mt-5 font-mono text-[10px] uppercase tracking-[0.16em] text-muted">
-            Coverage volume
-          </p>
-          <div className="mt-3 h-1.5 w-full bg-border/60">
-            <div
-              className="h-full bg-accent/70 transition-all duration-500"
-              style={{
-                width: `${Math.min(100, (event.articleCount / 400) * 100)}%`,
-              }}
-            />
-          </div>
-          <p className="mt-2 font-mono text-[11px] tabular-nums text-muted">
-            {event.articleCount.toLocaleString()} articles in window
-          </p>
+        <div className="flex flex-col px-5 py-5">
+          {subEvents.length > 0 ? (
+            <EventSubEventsPanel key={event.id} subEvents={subEvents} />
+          ) : (
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">
+                Key developments
+              </p>
+              <p className="mt-3 text-sm leading-relaxed text-muted/80">
+                No nested sub-events for this window yet.
+              </p>
+              <p className="mt-5 font-mono text-[10px] uppercase tracking-[0.16em] text-muted">
+                Coverage volume
+              </p>
+              <div className="mt-3 h-1.5 w-full bg-border/60">
+                <div
+                  className="h-full bg-accent/70 transition-all duration-500"
+                  style={{
+                    width: `${Math.min(100, (event.articleCount / 400) * 100)}%`,
+                  }}
+                />
+              </div>
+              <p className="mt-2 font-mono text-[11px] tabular-nums text-muted">
+                {event.articleCount.toLocaleString()} articles in window
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </article>

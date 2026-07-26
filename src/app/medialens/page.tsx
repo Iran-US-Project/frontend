@@ -44,38 +44,6 @@ export default function MediaLensPage() {
     >
       <EventTimeline />
 
-      {/* Query scaffold */}
-      <section className="mt-10 border border-border bg-paper/80">
-        <div className="flex flex-col gap-4 border-b border-border px-5 py-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex-1">
-            <label
-              htmlFor="event-query"
-              className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted"
-            >
-              Event or keyword
-            </label>
-            <input
-              id="event-query"
-              type="text"
-              placeholder="e.g. Strait of Hormuz closure, nuclear talks…"
-              disabled
-              className="mt-2 w-full border-0 bg-transparent font-display text-lg text-foreground outline-none placeholder:text-muted/50 disabled:cursor-not-allowed"
-            />
-          </div>
-          <button
-            type="button"
-            disabled
-            className="shrink-0 bg-foreground/40 px-5 py-3 text-[13px] font-medium tracking-wide text-paper disabled:cursor-not-allowed"
-          >
-            Run comparison
-          </button>
-        </div>
-
-        <p className="border-t border-border px-5 py-3 font-mono text-[11px] text-muted">
-          Scaffold — agent pipeline (fetch → frame → synthesize) not wired yet
-        </p>
-      </section>
-
       {/* Side-by-side matrix */}
       <section className="mt-10">
         <div className="mb-4 flex items-baseline justify-between gap-4">
