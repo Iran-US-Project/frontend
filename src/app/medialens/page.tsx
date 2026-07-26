@@ -1,3 +1,4 @@
+import { EventTimeline } from "@/components/EventTimeline";
 import { InstrumentShell } from "@/components/InstrumentShell";
 
 const frames = [
@@ -27,13 +28,6 @@ const frames = [
   },
 ];
 
-const timelineSlots = [
-  { date: "2025-06", label: "Escalation window" },
-  { date: "2025-09", label: "Diplomatic track" },
-  { date: "2026-01", label: "Sanctions cycle" },
-  { date: "2026-03", label: "Regional spillover" },
-];
-
 export default function MediaLensPage() {
   return (
     <InstrumentShell
@@ -48,8 +42,10 @@ export default function MediaLensPage() {
         { label: "Financial", accentClass: "text-finance", align: "right" },
       ]}
     >
+      <EventTimeline />
+
       {/* Query scaffold */}
-      <section className="border border-border bg-paper/80">
+      <section className="mt-10 border border-border bg-paper/80">
         <div className="flex flex-col gap-4 border-b border-border px-5 py-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex-1">
             <label
@@ -75,25 +71,7 @@ export default function MediaLensPage() {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 border-b border-border sm:grid-cols-4">
-          {timelineSlots.map((slot) => (
-            <button
-              key={slot.date}
-              type="button"
-              disabled
-              className="border-r border-border px-4 py-4 text-left last:border-r-0 disabled:cursor-not-allowed"
-            >
-              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
-                {slot.date}
-              </span>
-              <span className="mt-1 block text-sm text-foreground/70">
-                {slot.label}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        <p className="px-5 py-3 font-mono text-[11px] text-muted">
+        <p className="border-t border-border px-5 py-3 font-mono text-[11px] text-muted">
           Scaffold — agent pipeline (fetch → frame → synthesize) not wired yet
         </p>
       </section>

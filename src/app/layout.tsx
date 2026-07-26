@@ -7,6 +7,7 @@ const display = Newsreader({
   weight: ["400", "500", "600"],
   style: ["normal", "italic"],
   variable: "--font-display",
+  adjustFontFallback: false,
 });
 
 const sans = IBM_Plex_Sans({
