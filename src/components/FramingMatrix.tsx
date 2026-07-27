@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { ArticleReaderModal } from "@/components/ArticleReaderModal";
 import { fetchArticleBody } from "@/lib/api";
+import type { AnalysisStatus, OutletFraming } from "@/lib/analysis-types";
 import type { CoverageArticle, CoverageColumn } from "@/lib/event-coverage-types";
 import { formatCoverageDate } from "@/lib/event-coverage-types";
 
@@ -10,9 +11,12 @@ type FramingMatrixProps = {
   eventTitle: string;
   subEventTitle?: string | null;
   columns: CoverageColumn[];
+  outletFraming?: Partial<Record<CoverageColumn["outletId"], OutletFraming>>;
   loading?: boolean;
   error?: string | null;
   needsSubEvent?: boolean;
+  analysisStatus?: AnalysisStatus;
+  onRunComparison?: () => void;
 };
 
 type ReaderState = {
@@ -105,14 +109,65 @@ function ArticleCard({
   );
 }
 
+function OutletFramingSummary({
+  framing,
+  accent,
+}: {
+  framing: OutletFraming;
+  accent: string;
+}) {
+  const loadedPreview = framing.loadedWords.slice(0, 4);
+
+  return (
+    <div className="mt-4 border-t border-border/80 pt-4">
+      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
+        AI framing
+      </p>
+      <p className={`mt-2 text-sm font-medium ${accent}`}>{framing.tone}</p>
+      <p className="mt-1 text-sm leading-snug text-foreground/90">
+        {framing.frame}
+      </p>
+      {loadedPreview.length > 0 ? (
+        <div className="mt-3 flex flex-wrap gap-1">
+          {loadedPreview.map((word) => (
+            <span
+              key={word}
+              className="border border-border/80 bg-background/60 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.06em] text-foreground/75"
+            >
+              {word}
+            </span>
+          ))}
+          {framing.loadedWords.length > loadedPreview.length ? (
+            <span className="font-mono text-[9px] text-muted">
+              +{framing.loadedWords.length - loadedPreview.length}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function FramingMatrix({
   eventTitle,
   subEventTitle = null,
   columns,
+  outletFraming,
   loading = false,
   error = null,
   needsSubEvent = false,
+  analysisStatus = "idle",
+  onRunComparison,
 }: FramingMatrixProps) {
+  const outletsWithArticles = columns.filter((col) => col.articles.length > 0)
+    .length;
+  const hasEnoughOutlets = outletsWithArticles >= 2;
+  const hasSubEvent = !needsSubEvent || Boolean(subEventTitle);
+  const canRunComparison =
+    hasSubEvent &&
+    !loading &&
+    hasEnoughOutlets &&
+    analysisStatus !== "running";
   const [reader, setReader] = useState<ReaderState | null>(null);
   const [loadingArticleId, setLoadingArticleId] = useState<string | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
@@ -160,15 +215,42 @@ export function FramingMatrix({
             </p>
           ) : null}
         </div>
-        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">
-          Fox · BBC · Al Jazeera
-        </span>
+        <div className="flex flex-col items-end gap-2">
+          {onRunComparison ? (
+            <button
+              type="button"
+              onClick={onRunComparison}
+              disabled={!canRunComparison}
+              className="h-10 bg-foreground px-5 text-[12px] font-medium tracking-wide text-paper transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {analysisStatus === "running"
+                ? "Running…"
+                : analysisStatus === "complete"
+                  ? "Re-run analysis"
+                  : analysisStatus === "error"
+                    ? "Retry analysis"
+                    : "Run comparison"}
+            </button>
+          ) : null}
+          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">
+            Fox · BBC · Al Jazeera
+          </span>
+        </div>
       </div>
 
       {needsSubEvent && !subEventTitle ? (
         <p className="mb-4 border border-border bg-paper/80 px-4 py-3 text-sm text-muted">
           Select a key development above to load outlet coverage for that
           sub-event.
+        </p>
+      ) : null}
+
+      {hasSubEvent && !loading && !hasEnoughOutlets ? (
+        <p className="mb-4 border border-border bg-paper/80 px-4 py-3 text-sm text-muted">
+          Need at least 2 outlets with articles to run a comparison.
+          {outletsWithArticles === 1
+            ? " Only one outlet has coverage for this development."
+            : " No outlet coverage is available for this development."}
         </p>
       ) : null}
 
@@ -183,7 +265,10 @@ export function FramingMatrix({
           loading ? "opacity-60" : ""
         }`}
       >
-        {columns.map((col) => (
+        {columns.map((col) => {
+          const framing = outletFraming?.[col.outletId];
+
+          return (
           <article
             key={col.outletId}
             className={`flex min-h-[280px] flex-col border-b border-border md:border-b-0 md:border-r md:last:border-r-0 ${col.wash}`}
@@ -201,6 +286,9 @@ export function FramingMatrix({
                 {col.articleCount}{" "}
                 {col.articleCount === 1 ? "article" : "articles"}
               </p>
+              {framing ? (
+                <OutletFramingSummary framing={framing} accent={col.accent} />
+              ) : null}
             </header>
 
             <div className="flex-1 divide-y divide-border">
@@ -230,7 +318,8 @@ export function FramingMatrix({
               )}
             </div>
           </article>
-        ))}
+          );
+        })}
       </div>
 
       {loading && (

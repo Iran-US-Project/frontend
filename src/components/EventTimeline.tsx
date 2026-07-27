@@ -19,8 +19,6 @@ import {
   formatEventDate,
   formatMonthYear,
 } from "@/lib/timeline-events";
-import type { AnalysisStatus } from "@/lib/event-coverage";
-
 type FilterTier = "all" | EventTier;
 
 /** Pixel width of the scrollable timeline canvas */
@@ -219,11 +217,9 @@ function EventDetailPanel({
   index,
   total,
   isCompared,
-  analysisStatus,
   selectedSubEventId,
   onSelectSubEvent,
   onToggleCompare,
-  onRunComparison,
   onPrev,
   onNext,
 }: {
@@ -231,11 +227,9 @@ function EventDetailPanel({
   index: number;
   total: number;
   isCompared: boolean;
-  analysisStatus: AnalysisStatus;
   selectedSubEventId: string | null;
   onSelectSubEvent: (subEvent: SubEvent) => void;
   onToggleCompare: () => void;
-  onRunComparison: () => void;
   onPrev: () => void;
   onNext: () => void;
 }) {
@@ -305,18 +299,6 @@ function EventDetailPanel({
           >
             {isCompared ? "In compare" : "Compare"}
           </button>
-          <button
-            type="button"
-            onClick={onRunComparison}
-            disabled={!isCompared || analysisStatus === "running"}
-            className="h-10 bg-foreground px-5 text-[12px] font-medium tracking-wide text-paper transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {analysisStatus === "running"
-              ? "Running…"
-              : analysisStatus === "complete" && isCompared
-                ? "Re-run analysis"
-                : "Run comparison"}
-          </button>
         </div>
       </header>
 
@@ -370,10 +352,8 @@ type EventTimelineProps = {
   error?: string | null;
   compareEventId: string | null;
   selectedSubEventId: string | null;
-  analysisStatus: AnalysisStatus;
   onToggleCompare: (eventId: string) => void;
   onSelectSubEvent: (eventId: string, subEvent: SubEvent) => void;
-  onRunComparison: () => void;
 };
 
 export function EventTimeline({
@@ -384,10 +364,8 @@ export function EventTimeline({
   error = null,
   compareEventId,
   selectedSubEventId,
-  analysisStatus,
   onToggleCompare,
   onSelectSubEvent,
-  onRunComparison,
 }: EventTimelineProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -1007,7 +985,6 @@ export function EventTimeline({
             index={Math.max(0, selectedIndex)}
             total={visibleEvents.length}
             isCompared={compareEventId === selectedEvent.id}
-            analysisStatus={analysisStatus}
             selectedSubEventId={
               compareEventId === selectedEvent.id ? selectedSubEventId : null
             }
@@ -1015,7 +992,6 @@ export function EventTimeline({
               onSelectSubEvent(selectedEvent.id, subEvent)
             }
             onToggleCompare={() => onToggleCompare(selectedEvent.id)}
-            onRunComparison={onRunComparison}
             onPrev={() => selectRelative(-1)}
             onNext={() => selectRelative(1)}
           />

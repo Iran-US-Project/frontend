@@ -1,18 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  AnalysisLoadingModal,
+  type AnalysisLoadingPhase,
+} from "@/components/AnalysisLoadingModal";
 import { ComparisonReport } from "@/components/ComparisonReport";
 import { EventTimeline } from "@/components/EventTimeline";
 import { FramingMatrix } from "@/components/FramingMatrix";
-import { fetchEventCoverage, fetchTimeline } from "@/lib/api";
 import {
-  getEventCoverage,
+  fetchEventAnalysis,
+  fetchEventCoverage,
+  fetchTimeline,
+} from "@/lib/api";
+import {
+  mapMatrixToOutletFraming,
+  mapMatrixToReport,
+  type AnalysisPayload,
   type AnalysisStatus,
-} from "@/lib/event-coverage";
+} from "@/lib/analysis-types";
 import type { CoverageColumn } from "@/lib/event-coverage-types";
 import type { SubEvent, TimelineEvent } from "@/lib/timeline-events";
-
-const ANALYSIS_DELAY_MS = 2400;
 
 const EMPTY_COLUMNS: CoverageColumn[] = [
   {
@@ -47,10 +55,22 @@ const EMPTY_COLUMNS: CoverageColumn[] = [
   },
 ];
 
+function resetAnalysisState(setters: {
+  setAnalysisStatus: (status: AnalysisStatus) => void;
+  setAnalysisResult: (result: AnalysisPayload | null) => void;
+  setAnalysisError: (error: string | null) => void;
+  setLoadingPhase: (phase: AnalysisLoadingPhase) => void;
+}) {
+  setters.setAnalysisStatus("idle");
+  setters.setAnalysisResult(null);
+  setters.setAnalysisError(null);
+  setters.setLoadingPhase("gathering");
+}
 
 export function MediaLensWorkspace() {
   const matrixRef = useRef<HTMLDivElement>(null);
-  const analysisTimerRef = useRef<number | null>(null);
+  const analysisAbortRef = useRef<AbortController | null>(null);
+  const phaseTimersRef = useRef<number[]>([]);
 
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [timelineStart, setTimelineStart] = useState("");
@@ -63,11 +83,30 @@ export function MediaLensWorkspace() {
     null,
   );
   const [analysisStatus, setAnalysisStatus] = useState<AnalysisStatus>("idle");
+  const [analysisResult, setAnalysisResult] = useState<AnalysisPayload | null>(
+    null,
+  );
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [loadingPhase, setLoadingPhase] =
+    useState<AnalysisLoadingPhase>("gathering");
 
   const [coverageColumns, setCoverageColumns] =
     useState<CoverageColumn[]>(EMPTY_COLUMNS);
   const [coverageLoading, setCoverageLoading] = useState(false);
   const [coverageError, setCoverageError] = useState<string | null>(null);
+
+  const clearPhaseTimers = useCallback(() => {
+    for (const timerId of phaseTimersRef.current) {
+      window.clearTimeout(timerId);
+    }
+    phaseTimersRef.current = [];
+  }, []);
+
+  const stopAnalysis = useCallback(() => {
+    analysisAbortRef.current?.abort();
+    analysisAbortRef.current = null;
+    clearPhaseTimers();
+  }, [clearPhaseTimers]);
 
   useEffect(() => {
     let cancelled = false;
@@ -103,10 +142,18 @@ export function MediaLensWorkspace() {
     [events, compareEventId],
   );
 
-  const analysisCoverage = useMemo(
+  const analysisReport = useMemo(
     () =>
-      compareEvent ? getEventCoverage(compareEvent.id, compareEvent) : null,
-    [compareEvent],
+      analysisResult ? mapMatrixToReport(analysisResult.result) : null,
+    [analysisResult],
+  );
+
+  const outletFraming = useMemo(
+    () =>
+      analysisResult
+        ? mapMatrixToOutletFraming(analysisResult.result)
+        : undefined,
+    [analysisResult],
   );
 
   useEffect(() => {
@@ -148,12 +195,20 @@ export function MediaLensWorkspace() {
   }, [compareEventId, selectedSubEvent]);
 
   useEffect(() => {
+    stopAnalysis();
+    resetAnalysisState({
+      setAnalysisStatus,
+      setAnalysisResult,
+      setAnalysisError,
+      setLoadingPhase,
+    });
+  }, [compareEventId, selectedSubEvent?.id, stopAnalysis]);
+
+  useEffect(() => {
     return () => {
-      if (analysisTimerRef.current !== null) {
-        window.clearTimeout(analysisTimerRef.current);
-      }
+      stopAnalysis();
     };
-  }, []);
+  }, [stopAnalysis]);
 
   const handleToggleCompare = useCallback((eventId: string) => {
     setCompareEventId((current) => {
@@ -163,7 +218,6 @@ export function MediaLensWorkspace() {
       }
       return eventId;
     });
-    setAnalysisStatus("idle");
   }, []);
 
   const handleSelectSubEvent = useCallback(
@@ -174,31 +228,111 @@ export function MediaLensWorkspace() {
           ? null
           : subEvent,
       );
-      setAnalysisStatus("idle");
     },
     [compareEventId],
   );
 
-  const handleRunComparison = useCallback(() => {
-    if (!compareEventId || !selectedSubEvent || analysisStatus === "running") {
+  const startPhaseProgression = useCallback(() => {
+    clearPhaseTimers();
+    setLoadingPhase("gathering");
+    phaseTimersRef.current = [
+      window.setTimeout(() => setLoadingPhase("analyzing"), 2500),
+      window.setTimeout(() => setLoadingPhase("synthesizing"), 9000),
+    ];
+  }, [clearPhaseTimers]);
+
+  const handleRunComparison = useCallback(async () => {
+    if (
+      !compareEventId ||
+      !selectedSubEvent ||
+      analysisStatus === "running" ||
+      coverageLoading
+    ) {
       return;
     }
 
-    setAnalysisStatus("running");
-    if (analysisTimerRef.current !== null) {
-      window.clearTimeout(analysisTimerRef.current);
+    const outletsWithArticles = coverageColumns.filter(
+      (col) => col.articles.length > 0,
+    ).length;
+    if (outletsWithArticles < 2) {
+      setAnalysisError(
+        "Need at least 2 outlets with articles to run a comparison.",
+      );
+      setAnalysisStatus("error");
+      return;
     }
 
-    analysisTimerRef.current = window.setTimeout(() => {
+    stopAnalysis();
+    setAnalysisError(null);
+    setAnalysisStatus("running");
+    startPhaseProgression();
+
+    const controller = new AbortController();
+    analysisAbortRef.current = controller;
+    const force = analysisStatus === "complete" || analysisStatus === "error";
+
+    try {
+      const payload = await fetchEventAnalysis(compareEventId, {
+        subEventId: selectedSubEvent.id,
+        subEventTitle: selectedSubEvent.title,
+        force,
+        signal: controller.signal,
+      });
+
+      if (controller.signal.aborted) return;
+
+      setAnalysisResult(payload);
       setAnalysisStatus("complete");
-      analysisTimerRef.current = null;
-    }, ANALYSIS_DELAY_MS);
-  }, [compareEventId, selectedSubEvent, analysisStatus]);
+    } catch (err) {
+      if (
+        controller.signal.aborted ||
+        (err instanceof DOMException && err.name === "AbortError") ||
+        (err instanceof Error && err.name === "AbortError")
+      ) {
+        setAnalysisStatus("idle");
+        return;
+      }
+
+      setAnalysisError(
+        err instanceof Error ? err.message : "Failed to run comparison",
+      );
+      setAnalysisStatus("error");
+    } finally {
+      clearPhaseTimers();
+      if (analysisAbortRef.current === controller) {
+        analysisAbortRef.current = null;
+      }
+    }
+  }, [
+    analysisStatus,
+    clearPhaseTimers,
+    compareEventId,
+    coverageColumns,
+    coverageLoading,
+    selectedSubEvent,
+    startPhaseProgression,
+    stopAnalysis,
+  ]);
+
+  const handleCancelAnalysis = useCallback(() => {
+    stopAnalysis();
+    setAnalysisStatus("idle");
+    setAnalysisError(null);
+    setLoadingPhase("gathering");
+  }, [stopAnalysis]);
+
+  const handleDismissAnalysisError = useCallback(() => {
+    setAnalysisError(null);
+    setAnalysisStatus("error");
+  }, []);
 
   useEffect(() => {
     if (!compareEventId || !selectedSubEvent) return;
     matrixRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [compareEventId, selectedSubEvent]);
+
+  const showLoadingModal =
+    analysisStatus === "running" || Boolean(analysisError);
 
   return (
     <>
@@ -210,10 +344,8 @@ export function MediaLensWorkspace() {
         error={timelineError}
         compareEventId={compareEventId}
         selectedSubEventId={selectedSubEvent?.id ?? null}
-        analysisStatus={analysisStatus}
         onToggleCompare={handleToggleCompare}
         onSelectSubEvent={handleSelectSubEvent}
-        onRunComparison={handleRunComparison}
       />
 
       {compareEvent && (
@@ -222,21 +354,47 @@ export function MediaLensWorkspace() {
             eventTitle={compareEvent.title}
             subEventTitle={selectedSubEvent?.title ?? null}
             columns={coverageColumns}
+            outletFraming={outletFraming}
             loading={coverageLoading}
             error={coverageError}
             needsSubEvent
+            analysisStatus={analysisStatus}
+            onRunComparison={handleRunComparison}
           />
 
           {analysisStatus === "complete" &&
             selectedSubEvent &&
-            analysisCoverage?.analysis && (
+            analysisReport &&
+            analysisResult && (
               <ComparisonReport
                 eventTitle={`${compareEvent.title} — ${selectedSubEvent.title}`}
-                report={analysisCoverage.analysis.report}
+                report={analysisReport}
+                meta={{
+                  articleCount: analysisResult.articleCount,
+                  outletCount:
+                    analysisResult.result.sources_analyzed?.length ??
+                    coverageColumns.filter((col) => col.articles.length > 0)
+                      .length,
+                  cached: analysisResult.cached,
+                  generatedAt: analysisResult.generatedAt,
+                }}
               />
             )}
         </div>
       )}
+
+      <AnalysisLoadingModal
+        open={showLoadingModal}
+        phase={loadingPhase}
+        error={analysisError}
+        onCancel={
+          analysisStatus === "running" ? handleCancelAnalysis : undefined
+        }
+        onDismissError={handleDismissAnalysisError}
+        onRetry={
+          analysisStatus === "error" ? handleRunComparison : undefined
+        }
+      />
     </>
   );
 }
