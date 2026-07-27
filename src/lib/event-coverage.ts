@@ -26,17 +26,17 @@ export type EventCoverage = {
 
 const REGION_META = {
   western: {
-    regionLabel: "Western",
+    regionLabel: "Right",
     accent: "text-west",
     wash: "bg-west/[0.06]",
   },
   mena: {
-    regionLabel: "Middle East",
+    regionLabel: "center",
     accent: "text-mena",
     wash: "bg-mena/[0.06]",
   },
   financial: {
-    regionLabel: "Financial",
+    regionLabel: "middle east",
     accent: "text-finance",
     wash: "bg-finance/[0.06]",
   },

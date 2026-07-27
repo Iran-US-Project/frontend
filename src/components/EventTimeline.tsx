@@ -10,11 +10,9 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
-  TIMELINE_EVENTS,
-  TIMELINE_END,
-  TIMELINE_START,
   eventPosition,
   parseLocalDate,
+  timelineYears,
   type EventTier,
   type SubEvent,
   type TimelineEvent,
@@ -28,6 +26,8 @@ type FilterTier = "all" | EventTier;
 /** Pixel width of the scrollable timeline canvas */
 const TRACK_WIDTH = 2400;
 const CARD_WIDTH = 136;
+/** Horizontal inset so edge cards (centered on 0%/100%) are not clipped */
+const TRACK_GUTTER = CARD_WIDTH / 2 + 12;
 const CARD_HEIGHT = 74; // approximate flag card height for layout
 const LANE_STEP = 72; // vertical distance between stacked cards
 const STEM_BASE = 16;
@@ -65,16 +65,17 @@ function Chevron({ dir }: { dir: "left" | "right" }) {
   );
 }
 
-function buildMonthMarkers() {
+function buildMonthMarkers(start: string, end: string) {
   const markers: { label: string; position: number; key: string }[] = [];
-  const cursor = parseLocalDate(TIMELINE_START);
+  const rangeStart = parseLocalDate(start);
+  const cursor = parseLocalDate(start);
   cursor.setDate(1);
-  if (cursor < parseLocalDate(TIMELINE_START)) {
+  if (cursor < rangeStart) {
     cursor.setMonth(cursor.getMonth() + 1);
   }
-  const end = parseLocalDate(TIMELINE_END);
+  const rangeEnd = parseLocalDate(end);
 
-  while (cursor <= end) {
+  while (cursor <= rangeEnd) {
     const y = cursor.getFullYear();
     const m = cursor.getMonth() + 1;
     const iso = `${y}-${String(m).padStart(2, "0")}-01`;
@@ -84,7 +85,7 @@ function buildMonthMarkers() {
         month: "short",
         year: "2-digit",
       }),
-      position: eventPosition(iso),
+      position: eventPosition(iso, start, end),
     });
     cursor.setMonth(cursor.getMonth() + 1);
   }
@@ -92,14 +93,18 @@ function buildMonthMarkers() {
 }
 
 /** Place events on a chronological axis with collision-aware lanes. */
-function layoutEvents(events: TimelineEvent[]): LaidOutEvent[] {
+function layoutEvents(
+  events: TimelineEvent[],
+  start: string,
+  end: string,
+): LaidOutEvent[] {
   const sorted = [...events].sort((a, b) => a.date.localeCompare(b.date));
   const placed: LaidOutEvent[] = [];
   const minGapPx = CARD_WIDTH + 12;
 
   for (let i = 0; i < sorted.length; i++) {
     const event = sorted[i];
-    const position = eventPosition(event.date);
+    const position = eventPosition(event.date, start, end);
     const x = (position / 100) * TRACK_WIDTH;
     const side: "above" | "below" = i % 2 === 0 ? "above" : "below";
 
@@ -130,7 +135,15 @@ function formatSubEventDate(date: string): string {
   });
 }
 
-function EventSubEventsPanel({ subEvents }: { subEvents: SubEvent[] }) {
+function EventSubEventsPanel({
+  subEvents,
+  selectedSubEventId,
+  onSelectSubEvent,
+}: {
+  subEvents: SubEvent[];
+  selectedSubEventId: string | null;
+  onSelectSubEvent: (subEvent: SubEvent) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const preview = subEvents.slice(0, SUB_EVENT_PREVIEW_COUNT);
   const hiddenCount = Math.max(0, subEvents.length - preview.length);
@@ -143,20 +156,41 @@ function EventSubEventsPanel({ subEvents }: { subEvents: SubEvent[] }) {
           Key developments
         </p>
         <p className="mt-1.5 font-mono text-[11px] text-muted/80">
-          {subEvents.length} sub-events in this window
+          Select one to compare Fox · BBC · Al Jazeera
         </p>
 
         <ul className="mt-4 space-y-0 divide-y divide-border/70 border-y border-border/70">
-          {visible.map((item) => (
-            <li key={item.id} className="py-3">
-              <p className="text-[14px] leading-snug text-foreground/90">
-                {item.title}
-              </p>
-              <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
-                {formatSubEventDate(item.date)}
-              </p>
-            </li>
-          ))}
+          {visible.map((item) => {
+            const isSelected = selectedSubEventId === item.id;
+            return (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  onClick={() => onSelectSubEvent(item)}
+                  className={`w-full py-3 text-left transition-colors ${
+                    isSelected
+                      ? "bg-west/[0.08]"
+                      : "hover:bg-foreground/[0.03]"
+                  }`}
+                  aria-pressed={isSelected}
+                >
+                  <p
+                    className={`text-[14px] leading-snug ${
+                      isSelected
+                        ? "font-medium text-foreground"
+                        : "text-foreground/90"
+                    }`}
+                  >
+                    {item.title}
+                  </p>
+                  <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
+                    {formatSubEventDate(item.date)}
+                    {isSelected ? " · Comparing" : ""}
+                  </p>
+                </button>
+              </li>
+            );
+          })}
         </ul>
 
         {!expanded && hiddenCount > 0 && (
@@ -186,6 +220,8 @@ function EventDetailPanel({
   total,
   isCompared,
   analysisStatus,
+  selectedSubEventId,
+  onSelectSubEvent,
   onToggleCompare,
   onRunComparison,
   onPrev,
@@ -196,6 +232,8 @@ function EventDetailPanel({
   total: number;
   isCompared: boolean;
   analysisStatus: AnalysisStatus;
+  selectedSubEventId: string | null;
+  onSelectSubEvent: (subEvent: SubEvent) => void;
   onToggleCompare: () => void;
   onRunComparison: () => void;
   onPrev: () => void;
@@ -288,7 +326,12 @@ function EventDetailPanel({
         </p>
         <div className="flex flex-col px-5 py-5">
           {subEvents.length > 0 ? (
-            <EventSubEventsPanel key={event.id} subEvents={subEvents} />
+            <EventSubEventsPanel
+              key={event.id}
+              subEvents={subEvents}
+              selectedSubEventId={selectedSubEventId}
+              onSelectSubEvent={onSelectSubEvent}
+            />
           ) : (
             <div>
               <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">
@@ -320,16 +363,30 @@ function EventDetailPanel({
 }
 
 type EventTimelineProps = {
+  events: TimelineEvent[];
+  timelineStart: string;
+  timelineEnd: string;
+  loading?: boolean;
+  error?: string | null;
   compareEventId: string | null;
+  selectedSubEventId: string | null;
   analysisStatus: AnalysisStatus;
   onToggleCompare: (eventId: string) => void;
+  onSelectSubEvent: (eventId: string, subEvent: SubEvent) => void;
   onRunComparison: () => void;
 };
 
 export function EventTimeline({
+  events,
+  timelineStart,
+  timelineEnd,
+  loading = false,
+  error = null,
   compareEventId,
+  selectedSubEventId,
   analysisStatus,
   onToggleCompare,
+  onSelectSubEvent,
   onRunComparison,
 }: EventTimelineProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -349,26 +406,53 @@ export function EventTimeline({
   });
 
   const [filter, setFilter] = useState<FilterTier>("all");
-  const [selectedId, setSelectedId] = useState<string>(
-    TIMELINE_EVENTS.find((e) => e.tier === "major")?.id ??
-      TIMELINE_EVENTS[0].id,
-  );
+  const [selectedId, setSelectedId] = useState<string>("");
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
 
-  const monthMarkers = useMemo(() => buildMonthMarkers(), []);
+  const monthMarkers = useMemo(
+    () =>
+      timelineStart && timelineEnd
+        ? buildMonthMarkers(timelineStart, timelineEnd)
+        : [],
+    [timelineStart, timelineEnd],
+  );
+
+  const yearLabels = useMemo(
+    () =>
+      timelineStart && timelineEnd
+        ? timelineYears(timelineStart, timelineEnd)
+        : [],
+    [timelineStart, timelineEnd],
+  );
 
   const visibleEvents = useMemo(
     () =>
-      [...TIMELINE_EVENTS]
+      [...events]
         .filter((e) => filter === "all" || e.tier === filter)
         .sort((a, b) => a.date.localeCompare(b.date)),
-    [filter],
+    [events, filter],
   );
 
-  const laidOut = useMemo(() => layoutEvents(visibleEvents), [visibleEvents]);
+  const laidOut = useMemo(
+    () =>
+      timelineStart && timelineEnd
+        ? layoutEvents(visibleEvents, timelineStart, timelineEnd)
+        : [],
+    [visibleEvents, timelineStart, timelineEnd],
+  );
+
+  useEffect(() => {
+    if (!events.length) return;
+    setSelectedId((current) => {
+      if (current && events.some((e) => e.id === current)) return current;
+      return (
+        events.find((e) => e.tier === "major")?.id ?? events[0]?.id ?? ""
+      );
+    });
+  }, [events]);
 
   const maxLaneAbove = useMemo(
     () =>
@@ -403,7 +487,7 @@ export function EventTimeline({
   const selectedEvent =
     selectedIndex >= 0
       ? visibleEvents[selectedIndex]
-      : (visibleEvents[0] ?? TIMELINE_EVENTS[0]);
+      : (visibleEvents[0] ?? null);
 
   const updateScrollState = useCallback(() => {
     const el = scrollerRef.current;
@@ -571,11 +655,13 @@ export function EventTimeline({
             Chronology of the conflict
           </h2>
           <p className="mt-1 text-sm text-muted">
-            {formatMonthYear(TIMELINE_START)}
-            {" — "}
-            {formatMonthYear(TIMELINE_END)}
-            {" · "}
-            {visibleEvents.length} events plotted by date
+            {loading
+              ? "Loading corpus chronology…"
+              : error
+                ? error
+                : timelineStart && timelineEnd
+                  ? `${formatMonthYear(timelineStart)} — ${formatMonthYear(timelineEnd)} · ${visibleEvents.length} events plotted by date`
+                  : "No timeline data available"}
           </p>
         </div>
 
@@ -626,6 +712,18 @@ export function EventTimeline({
 
       {/* Chronological track */}
       <div className="relative border-b border-border">
+        {loading || error || !timelineStart || !timelineEnd ? (
+          <div className="flex min-h-[220px] items-center justify-center px-5 py-16">
+            <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">
+              {loading
+                ? "Loading timeline from dataset…"
+                : error
+                  ? error
+                  : "No events in corpus"}
+            </p>
+          </div>
+        ) : (
+          <>
         <div
           className={`pointer-events-none absolute inset-y-0 left-0 z-20 w-14 bg-gradient-to-r from-paper via-paper/85 to-transparent transition-opacity duration-300 ${
             canScrollLeft ? "opacity-100" : "opacity-0"
@@ -652,13 +750,21 @@ export function EventTimeline({
           onPointerMove={onPointerMove}
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
-          className={`timeline-scroll overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 ${
+          className={`timeline-scroll overflow-x-auto overflow-y-visible outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 ${
             isDragging ? "is-dragging" : ""
           }`}
         >
           <div
+            className="relative"
+            style={{
+              width: TRACK_WIDTH + TRACK_GUTTER * 2,
+              paddingLeft: TRACK_GUTTER,
+              paddingRight: TRACK_GUTTER,
+            }}
+          >
+          <div
             ref={trackRef}
-            className="relative mx-8 sm:mx-12"
+            className="relative"
             style={{ width: TRACK_WIDTH, height: trackHeight }}
           >
             {/* Axis */}
@@ -668,28 +774,38 @@ export function EventTimeline({
               aria-hidden
             />
 
-            {/* Year era labels — sit in the top margin, clear of event cards */}
-            <div
-              className="pointer-events-none absolute left-0 top-1 font-mono text-[10px] uppercase tracking-[0.16em] text-muted"
-            >
-              2025
-            </div>
-            <div
-              className="pointer-events-none absolute top-1 -translate-x-1/2 font-mono text-[10px] uppercase tracking-[0.16em] text-muted"
-              style={{ left: `${eventPosition("2026-01-01")}%` }}
-            >
-              2026
-            </div>
+            {/* Year era labels */}
+            {yearLabels.map((year) => {
+              const yearStart = `${year}-01-01`;
+              const left =
+                year === yearLabels[0]
+                  ? 0
+                  : eventPosition(yearStart, timelineStart, timelineEnd);
+              return (
+                <div
+                  key={year}
+                  className={`pointer-events-none absolute top-1 font-mono text-[10px] uppercase tracking-[0.16em] text-muted ${
+                    year === yearLabels[0] ? "" : "-translate-x-1/2"
+                  }`}
+                  style={{ left: year === yearLabels[0] ? 0 : `${left}%` }}
+                >
+                  {year}
+                </div>
+              );
+            })}
 
-            {/* Year boundary tick */}
-            <div
-              className="pointer-events-none absolute h-5 w-px -translate-x-1/2 -translate-y-1/2 bg-foreground/35"
-              style={{
-                left: `${eventPosition("2026-01-01")}%`,
-                top: axisTop,
-              }}
-              aria-hidden
-            />
+            {/* Year boundary ticks */}
+            {yearLabels.slice(1).map((year) => (
+              <div
+                key={`tick-${year}`}
+                className="pointer-events-none absolute h-5 w-px -translate-x-1/2 -translate-y-1/2 bg-foreground/35"
+                style={{
+                  left: `${eventPosition(`${year}-01-01`, timelineStart, timelineEnd)}%`,
+                  top: axisTop,
+                }}
+                aria-hidden
+              />
+            ))}
 
             {/* Start / end caps */}
             <div
@@ -721,7 +837,11 @@ export function EventTimeline({
             {laidOut.map((event) => {
               if (!event.endDate) return null;
               const start = event.position;
-              const end = eventPosition(event.endDate);
+              const end = eventPosition(
+                event.endDate,
+                timelineStart,
+                timelineEnd,
+              );
               const width = Math.max(0.4, end - start);
               return (
                 <div
@@ -842,6 +962,7 @@ export function EventTimeline({
               );
             })}
           </div>
+          </div>
         </div>
 
         <div className="flex flex-col gap-3 border-t border-border px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -875,6 +996,8 @@ export function EventTimeline({
             </span>
           </div>
         </div>
+          </>
+        )}
       </div>
 
       <div className="p-5">
@@ -885,6 +1008,12 @@ export function EventTimeline({
             total={visibleEvents.length}
             isCompared={compareEventId === selectedEvent.id}
             analysisStatus={analysisStatus}
+            selectedSubEventId={
+              compareEventId === selectedEvent.id ? selectedSubEventId : null
+            }
+            onSelectSubEvent={(subEvent) =>
+              onSelectSubEvent(selectedEvent.id, subEvent)
+            }
             onToggleCompare={() => onToggleCompare(selectedEvent.id)}
             onRunComparison={onRunComparison}
             onPrev={() => selectRelative(-1)}

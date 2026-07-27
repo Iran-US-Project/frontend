@@ -10,9 +10,9 @@ export default function MediaLensPage() {
       description="Select an event window, then read Western, Middle Eastern, and financial coverage side by side — tone, frames, and omissions made visible."
       accentClass="text-west"
       frameColumns={[
-        { label: "Western", accentClass: "text-west" },
-        { label: "Middle East", accentClass: "text-mena" },
-        { label: "Financial", accentClass: "text-finance", align: "right" },
+        { label: "Right", accentClass: "text-west" },
+        { label: "center", accentClass: "text-mena" },
+        { label: "middle east", accentClass: "text-finance", align: "right" },
       ]}
     >
       <MediaLensWorkspace />
