@@ -203,10 +203,10 @@ export function CausalTimeline({
                     }
                     className={`group w-[148px] border px-3 py-3 text-left transition-all ${
                       isFocalStep
-                        ? "border-accent bg-accent/[0.08] shadow-[0_8px_22px_-12px_rgba(143,29,44,0.35)]"
+                        ? "border-accent bg-paper shadow-[0_8px_22px_-12px_rgba(143,29,44,0.35)]"
                         : inRange
                           ? isRangeEnd
-                            ? "border-mena/50 bg-mena/[0.06]"
+                            ? "border-mena/50 bg-paper"
                             : "border-border bg-paper"
                           : "border-border/70 bg-paper/50 opacity-55 hover:opacity-80"
                     }`}
