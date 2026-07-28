@@ -4,6 +4,13 @@ import type {
   EventCoveragePayload,
 } from "@/lib/event-coverage-types";
 import type { AnalysisPayload } from "@/lib/analysis-types";
+import type {
+  GraphEvidenceDetail,
+  GraphFilters,
+  GraphNarrative,
+  GraphSubgraph,
+  GraphTimelinePayload,
+} from "@/lib/graph-types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
@@ -134,5 +141,148 @@ export async function fetchEventAnalysis(
     throw new Error(detail || `Event analysis failed: ${response.status}`);
   }
 
+  return response.json();
+}
+
+export type FetchGraphSubgraphOptions = {
+  from: number;
+  to: number;
+  depth?: number;
+  filters?: GraphFilters;
+  signal?: AbortSignal;
+};
+
+export async function fetchGraphTimeline(): Promise<GraphTimelinePayload> {
+  const response = await fetch(`${API_URL}/api/graph/timeline`, {
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const detail =
+      body && typeof body.message === "string" ? body.message : null;
+    throw new Error(detail || `Graph timeline fetch failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function fetchGraphSubgraph(
+  options: FetchGraphSubgraphOptions,
+): Promise<GraphSubgraph> {
+  const params = new URLSearchParams();
+  params.set("from", String(options.from));
+  params.set("to", String(options.to));
+  if (options.depth != null) {
+    params.set("depth", String(options.depth));
+  }
+  if (options.filters) {
+    params.set("filters", JSON.stringify(options.filters));
+  }
+
+  const response = await fetch(
+    `${API_URL}/api/graph/subgraph?${params.toString()}`,
+    { cache: "no-store", signal: options.signal },
+  );
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const detail =
+      body && typeof body.message === "string" ? body.message : null;
+    throw new Error(detail || `Graph subgraph fetch failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function fetchGraphEvidence(
+  type: "node" | "edge",
+  id: string,
+): Promise<GraphEvidenceDetail> {
+  const response = await fetch(
+    `${API_URL}/api/graph/evidence/${type}/${encodeURIComponent(id)}`,
+    { cache: "no-store" },
+  );
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const detail =
+      body && typeof body.message === "string" ? body.message : null;
+    throw new Error(detail || `Graph evidence fetch failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function fetchGraphNarrative(options: {
+  from: number;
+  to: number;
+  depth?: number;
+  filters?: GraphFilters;
+  filterHash?: string;
+  signal?: AbortSignal;
+}): Promise<GraphNarrative> {
+  const params = new URLSearchParams();
+  params.set("from", String(options.from));
+  params.set("to", String(options.to));
+  if (options.depth != null) {
+    params.set("depth", String(options.depth));
+  }
+  if (options.filters) {
+    params.set("filters", JSON.stringify(options.filters));
+  }
+  if (options.filterHash) {
+    params.set("filterHash", options.filterHash);
+  }
+
+  const response = await fetch(
+    `${API_URL}/api/graph/narrative?${params.toString()}`,
+    { cache: "no-store", signal: options.signal },
+  );
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const detail =
+      body && typeof body.message === "string" ? body.message : null;
+    throw new Error(
+      detail || `Graph narrative fetch failed: ${response.status}`,
+    );
+  }
+  return response.json();
+}
+
+export async function regenerateGraphNarrative(options: {
+  from: number;
+  to: number;
+  depth?: number;
+  filters?: GraphFilters;
+  filterHash?: string;
+  signal?: AbortSignal;
+}): Promise<GraphNarrative> {
+  const params = new URLSearchParams();
+  params.set("force", "true");
+  params.set("from", String(options.from));
+  params.set("to", String(options.to));
+  if (options.depth != null) {
+    params.set("depth", String(options.depth));
+  }
+  if (options.filters) {
+    params.set("filters", JSON.stringify(options.filters));
+  }
+  if (options.filterHash) {
+    params.set("filterHash", options.filterHash);
+  }
+
+  const response = await fetch(
+    `${API_URL}/api/graph/narrative?${params.toString()}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ force: true }),
+      cache: "no-store",
+      signal: options.signal,
+    },
+  );
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const detail =
+      body && typeof body.message === "string" ? body.message : null;
+    throw new Error(
+      detail || `Graph narrative regeneration failed: ${response.status}`,
+    );
+  }
   return response.json();
 }
