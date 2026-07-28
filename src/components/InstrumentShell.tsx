@@ -30,7 +30,7 @@ export function InstrumentShell({
       </div>
 
       <div className="relative z-10">
-        <header className="absolute inset-x-0 top-0 z-20 mx-auto flex max-w-6xl items-center justify-between px-6 pt-7 sm:px-8">
+        <header className="fixed inset-x-0 top-0 z-30 flex items-center justify-between px-6 pt-7 sm:px-8">
           <Link
             href="/"
             className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted transition-colors hover:text-foreground"

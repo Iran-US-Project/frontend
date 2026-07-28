@@ -165,23 +165,29 @@ function EventSubEventsPanel({
                 <button
                   type="button"
                   onClick={() => onSelectSubEvent(item)}
-                  className={`w-full py-3 text-left transition-colors ${
+                  className={`group w-full cursor-pointer border-l-2 py-3 pl-3 pr-2 text-left transition-colors duration-150 ${
                     isSelected
-                      ? "bg-west/[0.08]"
-                      : "hover:bg-foreground/[0.03]"
+                      ? "border-l-west bg-west/[0.08]"
+                      : "border-l-transparent hover:border-l-west/60 hover:bg-west/[0.06]"
                   }`}
                   aria-pressed={isSelected}
                 >
                   <p
-                    className={`text-[14px] leading-snug ${
+                    className={`text-[14px] leading-snug transition-colors ${
                       isSelected
                         ? "font-medium text-foreground"
-                        : "text-foreground/90"
+                        : "text-foreground/85 group-hover:font-medium group-hover:text-foreground"
                     }`}
                   >
                     {item.title}
                   </p>
-                  <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
+                  <p
+                    className={`mt-1 font-mono text-[10px] uppercase tracking-[0.12em] transition-colors ${
+                      isSelected
+                        ? "text-muted"
+                        : "text-muted/80 group-hover:text-muted"
+                    }`}
+                  >
                     {formatSubEventDate(item.date)}
                     {isSelected ? " · Comparing" : ""}
                   </p>
